@@ -1,0 +1,43 @@
+#!/bin/bash
+
+if ! sudo apt install apache2 apache2-utils -y ; then 
+  echo "failed to install apache.";
+  exit 1;
+fi
+if ! systemctl status apache2 ; then 
+  systemctl start apache2 
+fi
+sudo systemctl enable apache2
+#sudo apache2 -v
+if ! sudo apt-get install curl -y; then
+  echo "failed to install curl."
+  exit 1;
+fi
+sudo chown www-data:www-data /var/www/html/ -R
+if ! sudo apt-get install mariadb-server mariadb-client -y; then 
+  echo "failed to install mariadb server.";
+  exit 1;
+fi
+#sudo apt install mysql-server mysql-client
+sudo systemctl start mariadb
+sudo systemctl enable mariadb
+sudo mysql_secure_installation
+#Now you can use the following command to log in to MariaDB server.
+
+sudo mariadb -u root
+
+if ! sudo apt-get install php7.0 libapache2-mod-php7.0 php7.0-mysql php-common php7.0-cli php7.0-common php7.0-json php7.0-opcache php7.0-readline -y ; then
+  echo "failed to installed php." 
+  exit 1;
+fi
+if ! sudo a2enmod php7.0; then
+  echo "failed to start the php apache module."
+  exit 1;
+fi
+
+sudo systemctl restart apache2
+php --version
+#To test PHP scripts
+echo '<?php phpinfo(); ?>' > /var/www/html/info.php
+#Now in the browser address bar, enter 127.0.0.1/info.php or localhost/info.php
+
