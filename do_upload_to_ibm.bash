@@ -6,8 +6,8 @@
 #};
 #login to the ibm cloud environment 
 ibmcloud_login () { 
-	mypass='Alphazulu689r!';   #set to your password
-	mylogin="temsemailaddy@hotmail.com"  #usually your email addr.
+	mypass='';   #set to your password
+	mylogin=""  #usually your email addr.
 	ibmcloud login -q -u "${mylogin}" -p "${mypass}" 
 };
 ######################################################################
