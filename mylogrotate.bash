@@ -15,7 +15,7 @@ for (( i=${#filenames[@]} ; i >= 0; i--)) ; do
    if [[ ${filenames[i]} == '' ]]; then
       continue;
    else
-      read -r name ext num <<< "$( echo ${filenames[i]} | tr '.' ' ')";
+      IFS='.' read -r name ext num <<< "$( echo ${filenames[i]} )";
       read -r newfilename <<< "$( echo "${name}.${ext}.$((num + 1))" )";
       mv -f "${filenames[i]}" "./${newfilename}"
 
