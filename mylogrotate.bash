@@ -17,12 +17,11 @@ for (( i=${#filenames[@]} ; i >= 0; i--)) ; do
    else
       read -r name ext num <<< "$( echo ${filenames[i]} | tr '.' ' ')";
       read -r newfilename <<< "$( echo "${name}.${ext}.$((num + 1))" )";
-      mv -f "${filenames[i]}" "./$newfilename"
+      mv -f "${filenames[i]}" "./${newfilename}"
 
    fi
 done
 
-touch access.log
-touch error.log
-
+touch access.log || return 1;
+touch error.log || return 1;
 
