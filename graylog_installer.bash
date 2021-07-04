@@ -47,10 +47,9 @@ yum install graylog-server graylog-enterprise-plugins graylog-integrations-plugi
 echo -n "Enter Password: " && head -1 </dev/stdin | tr -d '\n' | sha256sum | cut -d" " -f1
 
 #Enter Password: greylogpassword
-#481e3c614b28b8f00bfca6f2942f604573fed335604b6b4ba91663667eeb47b9
 
 #[root@greylogvm ~]# pwgen -N 1 -s 96
-#xctGwpnBU461z3CX4TYrgdpVdfk9bgHdbPOmptuSJK14fFrlOF82iHEwyBbQZfbkRqNspnBSbOSV92FxmfDVf3n1jnILkcoo
+
 
 #selinux stuff
 setsebool -P httpd_can_network_connect 1;
