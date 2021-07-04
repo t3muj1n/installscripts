@@ -1,7 +1,7 @@
 #! /usr/bin/env bash
 for file in ./*; do
-	if [[ -d $file ]]; then
-   	continue;
+   if [[ -d $file ]]; then
+      continue;
    fi
    if [[ $file == *.log ]]; then 
       mv -f "${file}" "${file}.0";
@@ -24,4 +24,5 @@ done
 
 touch access.log
 touch error.log
+
 
