@@ -11,7 +11,6 @@ done
 
 filenames=(*.log.?);
 
-read -r numfiles <<< $(echo "${#filenames[@]}");
 for (( i=${#filenames[@]} ; i > -1; i--)) ; do
    if [[ ${filenames[i]} == '' ]]; then
       continue;
