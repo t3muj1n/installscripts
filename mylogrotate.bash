@@ -11,7 +11,7 @@ done
 
 filenames=(*.log.?);
 
-for (( i=${#filenames[@]} ; i > -1; i--)) ; do
+for (( i=${#filenames[@]} ; i >= 0; i--)) ; do
    if [[ ${filenames[i]} == '' ]]; then
       continue;
    else
