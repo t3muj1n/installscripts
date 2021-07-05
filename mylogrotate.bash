@@ -21,6 +21,6 @@ for (( i=${#filenames[@]} ; i >= 0; i--)) ; do
 
    fi
 done
-touch access.log || return 1;
-touch error.log || return 1;
+touch "access.log" || return 1;
+touch "error.log" || return 1;
 
