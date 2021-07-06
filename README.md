@@ -8,4 +8,4 @@ node to do some of the heavy lifting. using these as is
 is not recommended. using these as starter points though 
 should work out relatively well. they are a starting point, 
 not the end. eventually ill get around to completing them as
-i use them and worth through some of the problems.
+i use them and work through some of the problems.
