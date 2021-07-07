@@ -22,7 +22,7 @@ get_bucket_crn () { bucket_crn="$(ibmcloud resource service-keys --output json |
 get_bucket_name () { bucket_name="$(ibmcloud resource service-keys --output json | jq .[].name | tr -d \")"; };
 find_a_bucket () { ibmcloud cos get-bucket-location --bucket "${bucket_name}" --json |jq .LocationConstraint |tr -d \"; };
 list_bucket_contents () { ibmcloud cos list-objects --bucket "${bucket_name}"; };
-list_objects_in_bucket () {	ibmcloud cos list-objects --bucket "${bucket_name}" --json |jq .Contents[].Key; };
+list_objects_in_bucket () { ibmcloud cos list-objects --bucket "${bucket_name}" --json |jq .Contents[].Key; };
 delete_existing_bucket () { ibmcloud cos delete-bucket --bucket "${bucket_name}" --force --json; };
 Get_bucket_headers () { ibmcloud cos head-bucket --bucket "${bucket_name}" --json; };
 
