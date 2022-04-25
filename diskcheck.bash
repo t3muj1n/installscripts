@@ -6,7 +6,6 @@ moderate_threshold=85
 crit_threshold=95;
 
 #email variables
-notify_email_address+=("softwarehpn@socc.lcra.org" "sundara.vardhan@socc.lcra.org" "mrobins1@socc.lcra.org")
 message_subject='ALERT!'
 message_body=
 #msg_file="/path/to/msg.txt"
