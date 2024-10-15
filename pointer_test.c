@@ -17,7 +17,7 @@ int main (int argc, char *argv[])
 	for (i = 0 ; i < 100; i++)
 	{
 		p_Person->age = 0;
-		p_Person+= 1;
+		p_Person += 1;
 		p_Person->name[0] = 0;
 
 
