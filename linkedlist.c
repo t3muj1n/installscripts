@@ -1,7 +1,5 @@
 #!/usr/bin/tcc -run
-// it has been a very long time since i wrote anything in C.
-// i need to get back into writing more code i think. 
-// this is a refresher for me on what from years ago.
+	
 // a linked list written in c. 
 // if you leave the top line, and have tinyCC installed,
 // this will run like a script
