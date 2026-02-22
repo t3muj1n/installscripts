@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-#owner mirobins@amd.com
 
 host="$1";
 api_base='redfish/v1';
@@ -93,6 +92,7 @@ do_enable_main_snmp;
 do_reboot_ilo;
 do_enable_snmp_settings;
 do_set_community_string;
+
 
 
 
