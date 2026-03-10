@@ -1,0 +1,240 @@
+#!/usr/bin/env bash
+# owner mirobins@amd.com
+# this program is used to set jobs in device42.
+# it is a work in progress.
+# version 0.01
+
+
+#source for credentials
+PATH=/tool/pandora64/.package/curl-8.8.0/bin:$PATH
+CONFIGFILE='./device42_credentials'
+jobids=();
+jobnames=();
+tokenid='';
+token='';
+skip_logout='no';
+userdatafile='';
+d42datafile='./d42data.txt';
+#for getting error codes correctly from pipes.
+set -o pipefail
+
+
+##source the authentication credentials file.
+source "${CONFIGFILE}" 2>&1 > /dev/null || { echo "config file not found!" && exit 0; };
+
+
+#authenticate with server
+do_authenticate_with_api () {
+  read -r -d, token tokenid <<< $(curl -s --insecure --request POST --user "${user}:${pass}" --location "https://${host}/tauth/1.0/token/" | jq -r .token,.token_id )
+}
+#extend the token time
+do_extend_token_time () {
+    read -r -d, token tokenid <<< $(curl -s --insecure --request PUT --header "Authorization: Bearer ${token}" --header "Content-Type: application/json" --location "https://${host}/tauth/1.0/token/${tokenid}/" | jq -r .token,.token_id )
+}
+
+#get the client keys
+do_get_client_keys () {
+    curl -s --insecure --request GET --header "Authorization: Bearer ${token}" --header "Content-Type: application/json" --location "https://${host}/api/2.0/api_client_keys/" | jq .
+}
+
+#funcion to close the session
+do_close_session () {
+  curl -s --insecure --request DELETE --header "Authorization: Bearer ${token}" --header "Content-Type: application/json" --location  "https://${host}/tauth/1.0/token/${tokenid}" | jq .code
+}
+
+#####gathering data necessary for interracting with discovery jobs.#####
+#get the snmp discovery jobs ids
+do_get_snmp_jobs () {
+  while read -r ; do
+    jobids+=("${REPLY}")
+  done < <(curl -s --insecure --request GET --header "Authorization: Bearer ${token}" --header "Content-Type: application/json" --location  "https://${host}/api/1.0/auto_discovery/snmp_disc/" | jq .jobs[].job_id )
+}
+
+#get the name of the job from the jobid
+do_get_snmp_jobname_from_id () {
+  while read -r ; do
+    jobnames+=("${REPLY}")
+  done < <(curl -s --insecure --request GET --header "Authorization: Bearer ${token}" --header "Content-Type: application/json" --location  "https://${host}/api/1.0/auto_discovery/snmp_disc/" | jq .jobs[].name )
+}
+
+#create a snmp job for 1 host
+do_list_snmpjobs () {
+  echo "list of jobs"
+  for i in "${!jobids[@]}"; do
+    printf "%s\n" "jobid: ${jobids[i]}      jobname: ${jobnames[i]}";
+  done
+}
+
+#deletes all the jobs
+do_delete_all_snmpjobs () {
+  echo
+  for i in "${!jobids[@]}"; do
+    echo "deleting job id ${jobids[i]} ${jobnames[i]}"
+    curl -s --insecure --request DELETE --header "Authorization: Bearer ${token}" --header "Content-Type: application/json" --location  "https://${host}/api/1.0/auto_discovery/snmp_disc/${jobids[i]}/" | jq .
+  done
+}
+
+#deletes a single job
+do_delete_one_snmpjob () {
+  echo "function do_delete_one_snmpjob'";
+  local jobid=$1;
+  curl -s --insecure --request DELETE --header "Authorization: Bearer ${token}" --header "Content-Type: application/json" --location  "https://${host}/api/1.0/auto_discovery/snmp_disc/${jobid}/" | jq .
+}
+
+#convert datafile form user into format device42 understands
+do_generate_datafile_from_userfile () {
+  local line='';
+  local inputfile="$1";
+  while read -r line ; do
+    if [[ $line == '"name":'* ]] ; then
+      read line <<< $( echo "${line}" |tr ' ' '+') ;
+    fi
+    echo "$line";
+  done < ${inputfile} | tr -s ': ' '=' | tr -d '"' | tr -s ',\n' '&'
+}
+
+#creates a job in device42
+do_create_snmpjob () {
+  echo "function do_create_snmpjob"
+  curl -s -k -X POST --show-error --header "Authorization: Bearer ${token}" --location "https://${host}/api/1.0/auto_discovery/snmp_disc/" --data @${d42datafile} | jq .
+}
+
+# runs a job
+do_run_snmpjob () {
+  local jobid="$1";
+  echo "function do_run_snmpjob";
+  curl -s --insecure --request PUT --header 'Accept: application/json' --header "Authorization: Bearer ${token}" --location  "https://${host}/api/1.0/auto_discovery/snmp_disc/" --data "job_id=${jobid}" --data "run=yes" | jq .
+}
+
+#function to produce the datafiles from lsf. written by dan
+do_generate_lists_from_lsf () {
+  skip_logout='yes'
+  local outdir='./hostlist'
+
+  if ! [[ -d hostlists ]] ; then
+    echo "creating directory hostlists";
+    mkdir "${outdir}";
+  else
+    echo "directory exists. continuing.";
+  fi
+
+  echo "generating hostlist files. this will take a moment."
+  for i in atl caco dfdc pldc sadc syco; do
+    lshosts -w -R "${i}&&emulation" | grep -v HOST|cut -f1 -d' ' > ${outdir}/${i}.1
+    bhosts -w -R "${i}&&!lsfmaster" | grep -v HOST|cut -f1 -d' ' > ${outdir}/${i}.2
+    sort -u ${outdir}/${i}.[12]> ${outdir}/${i}.hosts
+    case "${outdir}/${i}" in
+      caco)
+        sed 's/$/-ipmi/' ${outdir}/${i}.hosts > ${outdir}/${i}.host-sps
+        ;;
+      dfdc)
+        sed 's/^/mp/' ${outdir}/${i}.hosts > ${outdir}/${i}.host-sps
+        ;;
+      *)
+        sed 's/$/-sp/' ${outdir}/${i}.hosts > ${outdir}/${i}.host-sps
+        ;;
+    esac
+      rm -f ${outdir}/${i}.[12]
+    done
+
+}
+
+############## get_opts and similar ###############
+#usage function for help and info
+do_usage () {
+  echo " -a testing"
+  echo " -l is used to list all the snmp jobs"
+  echo " -c creates a job"
+  echo " -D deletes all snmp jobs"
+  echo " -d deletes a single job from job_id"
+  echo " -r runs a job. this doesnt quite work yet"
+  echo " -g generate the data files. dans script"
+  echo " -f generates d42j jobs file to be fed into device42 ex $0 -f inputfile outputfile"
+
+  skip_logout='yes'
+}
+
+#gets the command line options and runs the commands.
+do_getopts () {
+  if [[ $# -ge 1 ]]; then
+    while getopts ":alcDhgr:d:f:" opt; do
+      case $opt in
+
+        a) #this is only here for testing at this time. it can be removed
+          echo "this option is no longer used."
+          ;;
+        l) #lists the snmp jobs
+          do_authenticate_with_api;
+          do_get_snmp_jobs;
+          do_get_snmp_jobname_from_id;
+          do_list_snmpjobs;
+          ;;
+        c) #create an snmp job
+          do_authenticate_with_api;
+          do_create_snmpjob;
+          do_get_snmp_jobs;
+          do_get_snmp_jobname_from_id;
+          do_list_snmpjobs;
+          ;;
+        D) #deletes all jobs
+          do_authenticate_with_api;
+          do_get_snmp_jobs;
+          do_get_snmp_jobname_from_id;
+          do_list_snmpjobs;
+          do_delete_all_snmpjobs;
+          do_list_snmpjobs;
+          ;;
+        d) #deletes a single job
+          do_authenticate_with_api;
+          do_delete_one_snmpjob "${OPTARG}";
+          sleep 1;
+          do_get_snmp_jobs;
+          do_get_snmp_jobname_from_id;
+          do_list_snmpjobs;
+          ;;
+        r) #run a job
+          do_authenticate_with_api;
+          do_get_snmp_jobs;
+          do_get_snmp_jobname_from_id;
+          do_list_snmpjobs;
+          do_run_snmpjob "${OPTARG}";
+          ;;
+        g) #generate host lists from lsf
+          do_generate_lists_from_lsf;
+          ;;
+        f) #formats the user supplied datafile for formdata
+          skip_logout='yes';
+
+          if ! [[ -f ${OPTARG} ]]; then
+            echo "${OPTARG} not found!"
+            return 1;
+          fi
+
+          if [[ -f ${d42datafile} ]] ; then
+            echo "moving ${d42datafile} to ${d42datafile}.bak"
+            mv "${d42datafile}" "${d42datafile}.bak";
+          fi
+          echo "generating jobs datafile ${d42datafile} from ${OPTARG}";
+          do_generate_datafile_from_userfile "${OPTARG}" > "${d42datafile}";
+            ;;
+        h) #basic usage
+          do_usage;
+          ;;
+      esac
+    done
+  else
+    do_usage;
+  fi;
+
+}
+##### main #####
+
+do_getopts "$@";
+shift $((OPTIND - 1 ));
+# always make sure to close the session
+if [[ $skip_logout == 'yes' ]]; then
+  exit 0;
+else
+  do_close_session;
+fi
+
