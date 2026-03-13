@@ -1,47 +1,60 @@
 #!/usr/bin/env bash
+# owner mirobins@amd.com
 # this program is used to set jobs in device42.
 # it is a work in progress.
-# version 0.01
-
+# version 0.10
 
 #source for credentials
-PATH=/tool/pandora64/.package/curl-8.8.0/bin:$PATH
-CONFIGFILE='./device42_credentials'
+PATH=/tool/pandora64/bin:/tool/pandora64/.package/curl-8.8.0/bin:$PATH
+CONFIGFILE='./device42_credentials';
+#the above file contains these 3 variables.
+user=""; #base64 encoded
+pass=""; #base64 encoded
+host=""; #server with device42 running
+
 jobids=();
 jobnames=();
 tokenid='';
 token='';
-skip_logout='no';
 userdatafile='';
-d42datafile='./d42data.txt';
-#for getting error codes correctly from pipes.
-set -o pipefail
+d42datafile='';
 
+
+auth_with_d42='NOTSET';
+list_snmpjobs='NOTSET';
+create_snmpjob='NOTSET';
+delete_all_jobs='NOTSET';
+delete_job='NOTSET';
+run_job='NOTSET';
+generate_lists='NOTSET';
+format_datafile='NOTSET';
+close_session='NOTSET';
+echo_token='NOTSET';
+skip_logout='NOTSET';
+
+
+#setting non-default shell options
+set -o pipefail;    #if any job in a pipe fails, it all fails.
+shopt -s extglob;   #to turn off shopt -u extglob
 
 ##source the authentication credentials file.
-source "${CONFIGFILE}" 2>&1 > /dev/null || { echo "config file not found!" && exit 0; };
-
+if [[ -f "$CONFIGFILE" ]]; then
+  source "${CONFIGFILE}";
+else
+  echo "${CONFIGFILE} not found! exiting.";
+  exit 1;
+fi
 
 #authenticate with server
 do_authenticate_with_api () {
   read -r -d, token tokenid <<< $(curl -s --insecure --request POST --user "${user}:${pass}" --location "https://${host}/tauth/1.0/token/" | jq -r .token,.token_id )
 }
-#extend the token time
-do_extend_token_time () {
-    read -r -d, token tokenid <<< $(curl -s --insecure --request PUT --header "Authorization: Bearer ${token}" --header "Content-Type: application/json" --location "https://${host}/tauth/1.0/token/${tokenid}/" | jq -r .token,.token_id )
-}
-
-#get the client keys
-do_get_client_keys () {
-    curl -s --insecure --request GET --header "Authorization: Bearer ${token}" --header "Content-Type: application/json" --location "https://${host}/api/2.0/api_client_keys/" | jq .
-}
 
 #funcion to close the session
 do_close_session () {
-  curl -s --insecure --request DELETE --header "Authorization: Bearer ${token}" --header "Content-Type: application/json" --location  "https://${host}/tauth/1.0/token/${tokenid}" | jq .code
+  curl -s --insecure --request DELETE --header "Authorization: Bearer ${token}" --header "Content-Type: application/json" --location  "https://${host}/tauth/1.0/token/${tokenid}" | jq .
 }
 
-#####gathering data necessary for interracting with discovery jobs.#####
 #get the snmp discovery jobs ids
 do_get_snmp_jobs () {
   while read -r ; do
@@ -76,7 +89,7 @@ do_delete_all_snmpjobs () {
 #deletes a single job
 do_delete_one_snmpjob () {
   echo "function do_delete_one_snmpjob'";
-  local jobid=$1;
+  local jobid="${1}";
   curl -s --insecure --request DELETE --header "Authorization: Bearer ${token}" --header "Content-Type: application/json" --location  "https://${host}/api/1.0/auto_discovery/snmp_disc/${jobid}/" | jq .
 }
 
@@ -88,14 +101,17 @@ do_generate_datafile_from_userfile () {
     if [[ $line == '"name":'* ]] ; then
       read line <<< $( echo "${line}" |tr ' ' '+') ;
     fi
+    # need an if to grab the server= line right here
     echo "$line";
   done < ${inputfile} | tr -s ': ' '=' | tr -d '"' | tr -s ',\n' '&'
 }
 
 #creates a job in device42
+
 do_create_snmpjob () {
+  local inputfile="${1}";
   echo "function do_create_snmpjob"
-  curl -s -k -X POST --show-error --header "Authorization: Bearer ${token}" --location "https://${host}/api/1.0/auto_discovery/snmp_disc/" --data @${d42datafile} | jq .
+  curl -s -k -X POST --show-error --header "Authorization: Bearer ${token}" --location "https://${host}/api/1.0/auto_discovery/snmp_disc/" --data @${inputfile} | jq .
 }
 
 # runs a job
@@ -107,10 +123,9 @@ do_run_snmpjob () {
 
 #function to produce the datafiles from lsf. written by dan
 do_generate_lists_from_lsf () {
-  skip_logout='yes'
   local outdir='./hostlist'
 
-  if ! [[ -d hostlists ]] ; then
+  if ! [[ -d ${outdir} ]] ; then
     echo "creating directory hostlists";
     mkdir "${outdir}";
   else
@@ -138,98 +153,134 @@ do_generate_lists_from_lsf () {
 
 }
 
-############## get_opts and similar ###############
 #usage function for help and info
 do_usage () {
-  echo " -a testing"
-  echo " -l is used to list all the snmp jobs"
-  echo " -c creates a job"
-  echo " -D deletes all snmp jobs"
-  echo " -d deletes a single job from job_id"
-  echo " -r runs a job. this doesnt quite work yet"
-  echo " -g generate the data files. dans script"
-  echo " -f generates d42j jobs file to be fed into device42 ex $0 -f inputfile outputfile"
+  echo " -a authenticate with the server. ex: $0 -a"
+  echo " -t echo the auth token. used with -a. used for testing"
+  echo " -l is used to list all snmp jobs ex; $0 -l "
+  echo " -c creates a job ex: $0 -c d42data.txt"
+  echo " -D deletes all snmp jobs ex: $0 -D "
+  echo " -d deletes a single job using job_id ex: d42j -d 51"
+  echo " -r runs a job. ex: $0 -r 51"
+  echo " -g generate the data files. ex: $0 -g"
+  echo " -f generates d42j jobs file ex: $0 -f inputfile"
+  echo " some options can be combined."
+  echo " ex: $0 -atl -c d42data.txt"
+  echo " ex: $0 -atl"
+  echo " ex: $0 -f datafile.txt -c datafile.d42"
 
   skip_logout='yes'
 }
 
-#gets the command line options and runs the commands.
 do_getopts () {
   if [[ $# -ge 1 ]]; then
-    while getopts ":alcDhgr:d:f:" opt; do
+    while getopts ":atlDhgc:r:d:f:" opt; do
       case $opt in
-
-        a) #this is only here for testing at this time. it can be removed
-          echo "this option is no longer used."
+        a) auth_with_d42='yes';
+           if [[ $skip_logout == 'NOTSET' ]]; then
+            skip_logout='no';
+           fi
           ;;
-        l) #lists the snmp jobs
-          do_authenticate_with_api;
-          do_get_snmp_jobs;
-          do_get_snmp_jobname_from_id;
-          do_list_snmpjobs;
+        l) auth_with_d42='yes';
+           list_snmpjobs='yes';
+           skip_logout='no';
           ;;
-        c) #create an snmp job
-          do_authenticate_with_api;
-          do_create_snmpjob;
-          do_get_snmp_jobs;
-          do_get_snmp_jobname_from_id;
-          do_list_snmpjobs;
+        c) auth_with_d42='yes'
+           create_snmpjob='yes';
+           d42datafile="${OPTARG}";
+           skip_logout='no';
           ;;
-        D) #deletes all jobs
-          do_authenticate_with_api;
-          do_get_snmp_jobs;
-          do_get_snmp_jobname_from_id;
-          do_list_snmpjobs;
-          do_delete_all_snmpjobs;
-          do_list_snmpjobs;
+        D) auth_with_d42='yes';
+           delete_job='yes';
+           skip_logout='no'
           ;;
-        d) #deletes a single job
-          do_authenticate_with_api;
-          do_delete_one_snmpjob "${OPTARG}";
-          sleep 1;
-          do_get_snmp_jobs;
-          do_get_snmp_jobname_from_id;
-          do_list_snmpjobs;
+        d) auth_with_d42='yes';
+           delete_job="${OPTARG}";
+           skip_logout='no';
           ;;
-        r) #run a job
-          do_authenticate_with_api;
-          do_get_snmp_jobs;
-          do_get_snmp_jobname_from_id;
-          do_list_snmpjobs;
-          do_run_snmpjob "${OPTARG}";
+        r) auth_with_d42='yes'
+           run_job="${OPTARG}";
+           skip_logout='no';
           ;;
-        g) #generate host lists from lsf
-          do_generate_lists_from_lsf;
+        g) auth_with_d42='no';
+           generate_lists='yes';
+           skip_logout='yes'
           ;;
-        f) #formats the user supplied datafile for formdata
-          skip_logout='yes';
-
-          if ! [[ -f ${OPTARG} ]]; then
-            echo "${OPTARG} not found!"
-            return 1;
-          fi
-
-          if [[ -f ${d42datafile} ]] ; then
-            echo "moving ${d42datafile} to ${d42datafile}.bak"
-            mv "${d42datafile}" "${d42datafile}.bak";
-          fi
-          echo "generating jobs datafile ${d42datafile} from ${OPTARG}";
-          do_generate_datafile_from_userfile "${OPTARG}" > "${d42datafile}";
-            ;;
-        h) #basic usage
-          do_usage;
+        f) auth_with_d42='no';
+           format_datafile='yes';
+           userdatafile="${OPTARG}";
+           d42datafile="${OPTARG%.*}.d42";
+           skip_logout='yes';
+           echo ;
+          ;;
+        t) echo_token='yes';
+           skip_logout='yes';
+          ;;
+        h) do_usage;
           ;;
       esac
     done
   else
     do_usage;
   fi;
-
 }
-##### main #####
 
+##### main #####
 do_getopts "$@";
 shift $((OPTIND - 1 ));
+
+
+if [[ $auth_with_d42 == 'yes' ]] ; then
+  do_authenticate_with_api;
+fi
+
+if [[ $echo_token == 'yes' && $auth_with_d42 == 'yes' ]]; then
+  echo "${token}";
+fi
+
+if [[ $list_snmpjobs == 'yes' ]]; then
+  do_get_snmp_jobs;
+  do_get_snmp_jobname_from_id;
+  do_list_snmpjobs;
+fi
+
+if [[ $format_datafile == 'yes' ]]; then
+  if ! [[ -f "${userdatafile}" ]]; then
+    echo "${userdatafile} not found!"
+    return 1;
+  fi
+
+  if [[ -f "${d42datafile}" ]] ; then
+    echo "moving ${d42datafile} to ${d42datafile}.bak"
+    mv "${d42datafile}" "${d42datafile}.bak";
+  fi
+  echo "generating jobs datafile ${d42datafile} from ${userdatafile}";
+  do_generate_datafile_from_userfile "${userdatafile}" > "${d42datafile}";
+
+fi
+
+if [[ $create_snmpjob == 'yes' ]]; then
+  echo ;
+  do_create_snmpjob "${d42datafile}";
+fi
+
+if  [[ $delete_job == +([[:digit:]]) ]]; then
+  do_delete_one_snmpjob "${delete_job}";
+fi
+
+if [[ $delete_job == 'yes' ]]; then
+  do_get_snmp_jobs;
+  do_delete_all_snmpjobs;
+fi
+
+if [[ $run_job != 'NOTSET' ]]; then
+  do_run_snmpjob "${run_job}";
+fi
+
+if [[ $generate_lists == 'yes' ]]; then
+  do_generate_lists_from_lsf;
+fi
+
 # always make sure to close the session
 if [[ $skip_logout == 'yes' ]]; then
   exit 0;
