@@ -7,19 +7,15 @@
 #source for credentials
 PATH=/tool/pandora64/bin:/tool/pandora64/.package/curl-8.8.0/bin:$PATH
 CONFIGFILE='./device42_credentials';
-#the above file contains these 3 variables.
-user=""; #base64 encoded
-pass=""; #base64 encoded
-host=""; #server with device42 running
-
 jobids=();
 jobnames=();
 tokenid='';
 token='';
 userdatafile='';
 d42datafile='';
+#datacenters=( atl caco dfdc pldc sadc syco );
 
-
+datacenter='NOTSET';
 auth_with_d42='NOTSET';
 list_snmpjobs='NOTSET';
 create_snmpjob='NOTSET';
@@ -45,9 +41,20 @@ else
   exit 1;
 fi
 
+
 #authenticate with server
 do_authenticate_with_api () {
   read -r -d, token tokenid <<< $(curl -s --insecure --request POST --user "${user}:${pass}" --location "https://${host}/tauth/1.0/token/" | jq -r .token,.token_id )
+}
+
+#extend the token time
+do_extend_token_time () {
+    read -r -d, token tokenid <<< $(curl -s --insecure --request PUT --Header "Authorization: Bearer ${token}" --Header "Content-Type: application/json" --location "https://${host}/tauth/1.0/token/${tokenid}/" | jq -r .token,.token_id )
+}
+
+#get the client keys
+do_get_client_keys () {
+    curl -s --insecure --request GET --Header "Authorization: Bearer ${token}" --Header "Content-Type: application/json" --location "https://${host}/api/2.0/api_client_keys/" | jq .
 }
 
 #funcion to close the session
@@ -96,18 +103,39 @@ do_delete_one_snmpjob () {
 #convert datafile form user into format device42 understands
 do_generate_datafile_from_userfile () {
   local line='';
+  local host='';
   local inputfile="$1";
+  local outputfile="${inputfile%.*}.d42";
+  local dc="${datacenter}";
+  local serverline='';
+
+  if [[ ${outputfile} == ".d42" ]]; then
+    outputfile="${inputfile}.d42";
+  fi
   while read -r line ; do
-    if [[ $line == '"name":'* ]] ; then
+    if [[ "$line" == '"name":'* ]] ; then
       read line <<< $( echo "${line}" |tr ' ' '+') ;
     fi
-    # need an if to grab the server= line right here
-    echo "$line";
-  done < ${inputfile} | tr -s ': ' '=' | tr -d '"' | tr -s ',\n' '&'
+
+    if ! [[ "$line" == '"server":'* ]]; then
+      echo "$line";
+    fi
+  done < "${inputfile}" | grep -v -e 'null' -v -e '"",' | tr -s ': ' '=' | tr -d '"' | tr -s ',\n' '&' > "${outputfile}"
+
+  if [[ $dc != 'NOTSET' ]]; then
+    while read -r host ; do
+      array+=("$host".amd.com);
+    done < ./hostlist/"${dc}".host-sps
+  else
+    echo "creating empty template without hosts."
+  fi
+
+  read serverline <<< $(printf "%s," "${array[@]}";)
+  echo "adding serverline to file ${outputfile}";
+  echo "server=${serverline%?}" >> "${outputfile}";
 }
 
 #creates a job in device42
-
 do_create_snmpjob () {
   local inputfile="${1}";
   echo "function do_create_snmpjob"
@@ -150,31 +178,34 @@ do_generate_lists_from_lsf () {
     esac
       rm -f ${outdir}/${i}.[12]
     done
-
 }
+
+
 
 #usage function for help and info
 do_usage () {
-  echo " -a authenticate with the server. ex: $0 -a"
-  echo " -t echo the auth token. used with -a. used for testing"
-  echo " -l is used to list all snmp jobs ex; $0 -l "
-  echo " -c creates a job ex: $0 -c d42data.txt"
-  echo " -D deletes all snmp jobs ex: $0 -D "
-  echo " -d deletes a single job using job_id ex: d42j -d 51"
-  echo " -r runs a job. ex: $0 -r 51"
-  echo " -g generate the data files. ex: $0 -g"
-  echo " -f generates d42j jobs file ex: $0 -f inputfile"
-  echo " some options can be combined."
-  echo " ex: $0 -atl -c d42data.txt"
-  echo " ex: $0 -atl"
-  echo " ex: $0 -f datafile.txt -c datafile.d42"
+  echo " -a authenticate with the server. ex: $0 -a";
+  echo " -t echo the auth token. used with -a. used for testing";
+  echo " -l is used to list all snmp jobs ex; $0 -l ";
+  echo " -c creates a job ex: $0 -c d42data.txt";
+  echo " -D deletes all snmp jobs ex: $0 -D ";
+  echo " -d deletes a single job using job_id ex: d42j -d 51";
+  echo " -r runs a job. ex: $0 -r 51";
+  echo " -g generate the data files. ex: $0 -g";
+  echo " -f generates d42j jobs file from hostlist file. ex: $0 -f inputfile -j syco";
+  echo " -j the datacenter to create jobs for. this is used with the -f argument";
+  echo " some options can be combined.";
+  echo " ex: $0 -f filename -j dc";
+  echo " ex: $0 -atl -c d42data.txt";
+  echo " ex: $0 -atl";
+  echo " ex: $0 -j syco -f datafile.txt -c datafile.d42";
 
-  skip_logout='yes'
+  skip_logout='yes';
 }
 
 do_getopts () {
   if [[ $# -ge 1 ]]; then
-    while getopts ":atlDhgc:r:d:f:" opt; do
+    while getopts ":atlDhgc:r:d:f:j:" opt; do
       case $opt in
         a) auth_with_d42='yes';
            if [[ $skip_logout == 'NOTSET' ]]; then
@@ -209,12 +240,13 @@ do_getopts () {
         f) auth_with_d42='no';
            format_datafile='yes';
            userdatafile="${OPTARG}";
-           d42datafile="${OPTARG%.*}.d42";
            skip_logout='yes';
            echo ;
           ;;
         t) echo_token='yes';
            skip_logout='yes';
+          ;;
+        j) datacenter="${OPTARG}";
           ;;
         h) do_usage;
           ;;
@@ -247,15 +279,9 @@ fi
 if [[ $format_datafile == 'yes' ]]; then
   if ! [[ -f "${userdatafile}" ]]; then
     echo "${userdatafile} not found!"
-    return 1;
+    exit 1;
   fi
-
-  if [[ -f "${d42datafile}" ]] ; then
-    echo "moving ${d42datafile} to ${d42datafile}.bak"
-    mv "${d42datafile}" "${d42datafile}.bak";
-  fi
-  echo "generating jobs datafile ${d42datafile} from ${userdatafile}";
-  do_generate_datafile_from_userfile "${userdatafile}" > "${d42datafile}";
+  do_generate_datafile_from_userfile "${userdatafile}" "${datacenter}";
 
 fi
 
@@ -287,4 +313,3 @@ if [[ $skip_logout == 'yes' ]]; then
 else
   do_close_session;
 fi
-
