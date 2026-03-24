@@ -13,7 +13,6 @@ tokenid='';
 token='';
 userdatafile='';
 d42datafile='';
-#datacenters=( atl caco dfdc pldc sadc syco );
 
 datacenter='NOTSET';
 auth_with_d42='NOTSET';
