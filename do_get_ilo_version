@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+set -o pipefail;
+
+do_get_ilo_version () {
+  local user="$1";
+  local pass="$2"
+  local host="$3";
+  curl -s --insecure -u ${user}:${pass} --connect-timeout 10 --max-time 30\
+  --header 'Content-Type: application/json' --request GET \
+  --location "https://${host}/redfish/v1" | jq '.Oem.Hpe.Manager[].ManagerType';
+  if [[ $? -ne 0 ]] ; then
+    echo "timeout";
+  fi
+}
+
+if [[ $# -lt 3 ]]; then
+  echo "usage: $0 user pass hostname";
+  exit;
+else
+  do_get_ilo_version "$@";
+fi
+

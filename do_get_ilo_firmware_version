@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -o pipefail
+
+
+do_get_firmware_version () {
+  local user="$1";
+  local pass="$2";
+  local host="$3";
+
+  curl -s --max-time 30 --connect-timeout 10  --insecure -u ${user}:${pass} \
+  --header 'Content-Type: application/json' \
+  --request GET \
+  --location "https://${host}/redfish/v1/Managers/1/" | \
+  jq '.FirmwareVersion';
+  
+  if [[ $? -ne 0 ]] ; then
+    echo "timeout";
+  fi
+}
+
+if [[ $# -lt 3 ]]; then
+  echo "usage: $0 user pass hostname"
+  exit;
+else
+  do_get_firmware_version "$@";
+fi
+

@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+set -o pipefail;
+
+do_reset_ilo () {
+
+  local user="$1";
+  local pass="$2";
+  local host="$3"
+
+  curl -s --max-time 30 --connect-timeout 10 --insecure --request POST -u "${user}:${pass}" -H "Content-Type: application/json" --data '{ "ResetType": "ForceRestart" }' \
+  https://${host}/redfish/v1/Managers/1/Actions/Manager.Reset | jq  '.error["@Message.ExtendedInfo"][0].MessageId'
+
+}
+
+if [[ $# -lt 3 ]]; then
+  echo "usage: $0 user pass hostname"
+  exit;
+else 
+  do_reset_ilo "$@";
+fi
+
+

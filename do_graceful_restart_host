@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+set -o pipefail;
+
+do_graceful_restart_host () {
+
+  local user="$1";
+  local pass="$2";
+  local host="$3";
+
+  curl -s --max-time 30 --connect-timeout 10 --insecure --request POST -u "${user}:${pass}" -H "Content-Type: application/json" --data '{ "ResetType": "GracefulRestart" }' \
+  https://${host}/redfish/v1/Systems/1/Actions/ComputerSystem.Reset | jq  '.error["@Message.ExtendedInfo"][0].MessageId'
+
+}
+
+if [[ $# -lt 3 ]]; then
+  echo "usage: $0 user pass hostname"
+  exit;
+else
+  do_graceful_restart_host "$@";
+fi
+
+
+
