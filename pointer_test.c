@@ -11,7 +11,7 @@ struct Person
 int main (int argc, char *argv[])
 {
 	struct Person people[100];
-	struct Person *p_Person = &people;
+	struct Person *p_Person = &people[0];
 
 	int i = 0;
 	for (i = 0 ; i < 100; i++)
