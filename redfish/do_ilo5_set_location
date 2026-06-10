@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+set -o pipefail;
+
+do_ilo5_set_location () {
+
+  local user="$1";
+  local pass="$2";
+  local host="$3";
+  local data="$4";
+
+  curl -s --insecure -u "${user}:${pass}" --max-time 30 --connect-timeout 10 -X PATCH \
+  -H "Content-Type: application/json" \
+  -d "{\"Location\":\"${data}\"}" \
+  https://${host}/redfish/v1/Managers/1/SnmpService/ |\
+  jq  '.error["@Message.ExtendedInfo"][0].MessageId'
+
+  if [[ $? -ne 0 ]] ; then
+    echo "timeout";
+  fi
+
+}
+
+if [[ $# -lt 4 ]]; then
+  echo "usage: $0 user pass hostname"
+  exit;
+else
+  do_ilo5_set_location "$@";
+fi
+
