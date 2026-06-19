@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+set -o pipefail;
+
+do_ilo_get_users () {
+
+  local user="$1";
+  local pass="$2";
+  local host="$3";
+  array+=( $( curl -s --insecure -u "${user}:${pass}" --connect-timeout 10 --max-time 30 -H 'Content-Type: application/json'   https://${host}/redfish/v1/AccountService/Accounts/ | jq -r '.Members[]."@odata.id"' ));
+
+  for i in "${array[@]}"; do
+    id="${i%/}";
+    id="${id##*/}";
+
+    read username <<< $(curl -s --insecure -u "${user}:${pass}" --connect-timeout 10 --max-time 30 \
+      -H 'Content-Type: application/json' -X GET \
+      https://${host}/redfish/v1/AccountService/Accounts/${id}/ | jq .UserName)
+    printf "%s %s %s " "${host}" "${id}" "${username}";
+    echo
+  done
+
+  if [[ $? -ne 0 ]] ; then
+    echo "timeout";
+  fi
+
+}
+
+if [[ $# -lt 3 ]]; then
+  echo "usage: $0 user pass hostname";
+  exit;
+else
+  do_ilo_get_users "$@";
+fi
+

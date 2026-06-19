@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+set -o pipefail;
+
+do_ilo_get_uuid () {
+  local user="$1";
+  local pass="$2";
+  local host="$3";
+
+  curl -s --insecure -u "${user}:${pass}" --connect-timeout 10 --max-time 30 \
+  -H 'Content-Type: application/json' \
+  https://${host}/redfish/v1/Systems/1  \
+  | jq '.UUID'
+
+  if [[ $? -ne 0 ]] ; then
+    echo "timeout";
+  fi
+}
+
+if [[ $# -lt 3 ]]; then
+  echo "usage: $0 user pass hostname";
+  exit;
+else
+  do_ilo_get_uuid "$@";
+fi
+

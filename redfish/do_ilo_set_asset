@@ -2,7 +2,7 @@
 
 set -o pipefail;
 
-do_ilo7_set_asset () {
+do_ilo_set_asset () {
 
   local user="$1";
   local pass="$2";
@@ -22,6 +22,6 @@ if [[ $# -lt 4 ]]; then
   echo "usage: $0 user pass hostname-sp datacenter"
   exit;
 else
-  do_ilo7_set_asset "$@";
+  do_ilo_set_asset "$@";
 fi
 

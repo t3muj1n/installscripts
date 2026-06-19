@@ -2,7 +2,7 @@
 
 set -o pipefail;
 
-do_ilo7_get_asset () {
+do_ilo_get_asset () {
 
   local user="$1";
   local pass="$2";
@@ -19,6 +19,6 @@ if [[ $# -lt 3 ]]; then
   echo "usage: $0 user pass hostname"
   exit;
 else
-  do_ilo7_get_asset "$@";
+  do_ilo_get_asset "$@";
 fi
 
