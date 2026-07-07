@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -o pipefail;
+
+do_lenovo_powerstate () {
+
+  local user="$1";
+  local pass="$2";
+  local host="$3"
+
+  curl -s --insecure -u "${user}:${pass}" https://${host}/redfish/v1/Systems/1 | jq .PowerState
+  }
+
+if [[ $# -lt 3 ]]; then
+  echo "usage: $0 user pass hostname"
+  exit;
+else
+  do_lenovo_powerstate "$@";
+fi

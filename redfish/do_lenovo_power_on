@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -o pipefail;
+do_host_power_on () {
+  
+  local user="$1";
+  local pass="$2";
+  local host="$3";
+
+  curl -s -i --insecure -u "${user}:${pass}" --max-time 30 --connect-timeout 10 -X POST \
+  -H "Content-Type: application/json" \
+  --data '{ "ResetType": "On" }' \
+  https://${host}/redfish/v1/Systems/1/Actions/ComputerSystem.Reset |\
+  grep 'HTTP/1.1'  
+  
+
+}
+
+if [[ $# -lt 3 ]]; then
+  echo "usage: $0 user pass hostname"
+  exit;
+else
+  do_host_power_on "$@";
+fi
+
