@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+usage() {
+    echo "Usage:"
+    echo "  $0 -R '<resource string>' '<command>'"
+    echo "  $0 -H 'host1 host2 host3' '<command>'"
+    exit 1
+}
+
+while getopts ":R:H:" opt; do
+    case "$opt" in
+        R)
+            resources="$OPTARG"
+            mode="R"
+            ;;
+        H)
+            hosts="$OPTARG"
+            mode="H"
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+
+shift $((OPTIND - 1))
+
+mycmd="$1"
+
+[[ -z "$mode" || -z "$mycmd" ]] && usage
+
+if [[ "$mode" == "R" ]]; then
+    lshosts -R "$resources" | awk 'NR>1 {print $1}' | tr '\n' ' ' |\
+    /tool/pandora/bin/pdsh -R ssh -w - -u 30 -t 30 -f 100 "$mycmd"
+
+else
+    lshosts $hosts | awk 'NR>1 {print $1}' | tr '\n' ' ' |\
+    /tool/pandora/bin/pdsh -R ssh -w - -u 30 -t 30 -f 100 "$mycmd"
+
+fi
+
