@@ -30,12 +30,12 @@ mycmd="$1"
 [[ -z "$mode" || -z "$mycmd" ]] && usage
 
 if [[ "$mode" == "R" ]]; then
-    lshosts -R "$resources" | awk 'NR>1 {print $1}' | tr '\n' ' ' |\
-    /tool/pandora/bin/pdsh -R ssh -w - -u 30 -t 30 -f 100 "$mycmd"
+    lshosts -w -R "$resources" | awk 'NR>1 {print $1}' | tr '\n' ' ' |\
+    /tool/pandora/bin/pdsh -R ssh  -w - -u 30 -t 30 -f 100 "$mycmd"
 
 else
-    lshosts $hosts | awk 'NR>1 {print $1}' | tr '\n' ' ' |\
-    /tool/pandora/bin/pdsh -R ssh -w - -u 30 -t 30 -f 100 "$mycmd"
+    lshosts -w $hosts | awk 'NR>1 {print $1}' | tr '\n' ' ' |\
+    /tool/pandora/bin/pdsh -R ssh  -w - -u 30 -t 30 -f 100 "$mycmd"
 
 fi
 
