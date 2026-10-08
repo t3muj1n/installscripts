@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+set -o pipefail;
+d42host='atlvd42mapp01.amd.com';
+
+do_d42_update_custom_field_contents () {
+
+  local user="$1";
+  local pass="$2"
+  local host="$3"; 
+  local key="$4"; #name of the field ex: key='emulator_model'
+  local value="$5"; 
+
+  curl -k -s -S --connect-timeout 10 --max-time 30 -u "${user}:${pass}" -X PUT \
+  --header 'Content-Type: application/x-www-form-urlencoded' \
+  --header 'Accept: application/json' \
+  -d "name=${host}" \
+  -d "key=${key}" \
+  -d 'type=text' \
+  -d 'mandatory=no' \
+  -d 'filterable=yes' \
+  -d 'log_for_api=yes' \
+  -d 'include_in_context_popups=true' \
+  -d "value=${value}" \
+   "https://${d42host}/api/1.0/custom_fields/device/" | jq .
+
+  if [[ $? -ne 0 ]] ; then
+    echo "timeout";
+  fi
+}
+
+if [[ $# -lt 5 ]]; then
+  echo "usage: $0 user pass host field_name value";
+  exit;
+else
+  do_d42_update_custom_field_contents  "$@";
+fi
+
+#script user pass $host emulator_vendor $vendor 
+#script user pass $host emulator_name $emulator
+#script usre pass $host emulator_model $model
+
