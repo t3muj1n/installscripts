@@ -1,0 +1,215 @@
+- **Class (Integer)** The Class field identifies the structural classification or major **hardware subsystem** where the event occurred.** What it means in your log:**
+	- **Known Subsystem Classes**
+		- **Class 1 (0x01):** Memory Subsystem *(e.g.,   Advanced ECC errors, multi-bit ECC, or configuration errors)*
+		- **Class 2 (0x02):** Environmental /  Thermal Subsystem *(e.g., Temperature thresholds, fan failures, system   overheating)*
+		- **Class 3 (0x03):** Power Subsystem *(e.g., Power supply failures, power redundancy lost)*
+		- **Class 4 (0x04):** System Architecture / Motherboard *(e.g., General system board faults)*
+		- **Class 5 (0x05):** CPU / Processor Subsystem *(e.g., Uncorrectable Machine Check Exceptions [MCE],  processor faults)*
+		- **Class 6 (0x06):** PCI Subsystem *(e.g., PCI bus errors, device failures)*
+		- **Class 8 (0x08):** System Core / Revision Status *(Tracks system hardware/BIOS/POST configuration changes or revisions)*
+		- **Class 9 (0x09):** Operating System *(Logs events triggered by OS interactions or unexpected software halts)*
+		- **Class 10 (0x0A):** Storage / Smart Array Controllers *(e.g., Array controller errors, cache backup battery missing/faults)*
+		- **Class 11 (0x0B):** Storage Devices & Smart Storage Energy Pack *(e.g., Drive failures, energy pack pre-failure states)*
+		- **Class 17 (0x11):** Network / NIC Subsystem *(e.g., Adapter link down or port transitions)*
+		- **Class 20 (0x14):** Hardware Fault / Mezzanine Components *(Often used in Synergy interconnect configurations or broad hardware critical faults)*
+		- **Class 50 (0x32):** System Management Recovery *(Commonly logs Unexpected Shutdowns and Restarts where the system recovers from an undetermined error)*
+    
+    
+- **ClassDescription (String)**
+  The ClassDescription is the human-readable text counterpart to the Class integer. It explicitly states the hardware category so engineers do not have to cross-reference numerical schemas  
+- Because the explicit mapping matrix contains hundreds of entries, **the severity is
+  entirely linked to the combination of the Class and Code**. In the Redfish
+  JSON payload, you don't have to guess the severity of these codes; it is
+  explicitly provided on the same object level via the top-level standard Redfish
+  string key **"Severity"** (which will return "OK",  
+  "Warning", or "Critical"). [[1](https://hewlettpackard.github.io/ilo-rest-api-docs/ilo6/)]  
+- The exact definitions of the numeric Code values for each of the core HPE Class
+  blocks map as follows:  
+	- **Class 1: Memory**
+		- **Code 1:** Corrected Memory Error *(Threshold Exceeded)* ➔  **Warning**
+		- **Code 2:** Uncorrectable Multi-bit Memory Error *(Causes System Halt)* ➔  **Critical**
+		- **Code 3:** Memory Configuration/Population Error ➔  **Warning**
+	- **Class 2: Thermal**
+		- **Code 1:** Environment Threshold Warning *(Temperature High)* ➔  **Warning**
+		- **Code 2:** Over-temperature Critical Threshold exceeded ➔  **Critical**
+		- **Code 3:** Thermal System Shutdown Initiated ➔  **Critical**
+	- **lass 3: Power**
+		- **Code 1:** Power Supply  Redundancy Lost ➔  **Warning**
+		- **Code 2:** Power Supply  General Failure ➔  **Critical**
+		- **Code 3:** Input Power Loss  / Cord Unplugged ➔  **Warning**
+		- **Code 4:** Power Subsystem  Overcurrent / Circuit Fault ➔  **Critical**
+	- **Class 4: System Board / Motherboard**
+		- **Code 1:** General System  Board / ASIC Fault Detected ➔  **Critical**
+		- **Code 2:** System ROM / SPI  Flash Corruption ➔  **Critical**
+		- **Code 3:** CMOS Battery  Failure ➔  **Warning**
+	- **Class 5: CPU**
+		- **Code 1:** Processor  Internal Error (IERR) ➔  **Critical**
+		- **Code 2:** Processor  Over-temperature / Thermal Trip ➔  **Critical**
+		- **Code 3:** Uncorrectable  Machine Check Exception (MCE) ➔  **Critical**
+		- **Code 4:** Uncorrectable Machine Check Exception - Extended Register dump ➔  **Critical**  *(CORRECTED 2026-10-18 - see Corrections at the end of this file. The original entry read "Processor Interconnect Link (QPI / UPI) Failure", which does not match observed AMD hardware.)*
+	- **Class 6: PCI**
+		- **Code 1:** PCI Bus Option  ROM Error ➔  **Warning**
+		- **Code 2:** PCI Bus Master  Abort / Fatal Peripheral Error ➔  **Critical**
+		- **Code 3:** PCIe Slot Power  Fault ➔  **Critical**
+	- **Class 8: Status / POST Configuration**
+		- **Code 1:** POST  Configuration Successful / Baseline Changed ➔  **OK /  Informational**
+		- **Code 2:** Configuration /  NVRAM Reset to Factory Defaults ➔  **OK /  Informational**
+	- **Class 9: Operating System**
+		- **Code 1:** Operating System  Boot Commenced ➔  **OK /  Informational**
+		- **Code 2:** OS Unexpected  Software Halt / NMI / Blue Screen ➔  **Critical**
+		- **Code 3:** Agentless  Management Service (AMS) Heartbeat Lost ➔  **Warning**
+	- **Class 10: Storage Array Controllers**
+		- **Code 1:** Storage Array  Controller Status: OK ➔  **OK / Informational**
+		- **Code 2:** Storage Array  Controller Degraded Performance ➔  **Warning**
+		- **Code 4:** Cache Module  Battery / Capacitor Charge Low ➔  **Warning**
+		- **Code 8:** Smart Array  Controller Hardware Lockup / Fatal Fault ➔  **Critical**
+	- **Class 11: Storage Devices & Smart Storage Energy Pack**
+		- **Code 36:** Physical Drive  Failure ➔  **Critical**
+		- **Code 52:** Storage Enclosure  Supply Failure ➔  **Warning**
+		- **Code 86:** Smart Storage  Energy Pack Pre-Failure State ➔  **Warning** [[1](https://community.hpe.com/t5/hpe-proliant-servers-ml-dl-sl/description-of-event-id-2825-iml-class-code-11-event-code-86/td-p/7192852)]
+	- **Class 17: Network Subsystem**
+		- **Code 1:** Network Link  Connection Established ➔  **OK / Informational**
+		- **Code 2:** Network Adapter  Link Down / Redundancy Lost ➔  **Warning**
+	- **Class 50: System Management Recovery**
+		- **Code 1:** Automatic Server  Recovery (ASR) Initiated *(Server locked up and iLO forced a reboot)*➔  **Warning**
+		- **Code 2:** Graceful Remote  Power Cycle Initiated ➔  **OK / Informational**
+    
+
+
+these codes below were found in some of the hosts but were not part of the above tabled of classes and codes.
+
+- **Extended codes**
+- **As HPE expanded the capability of ProLiant platforms in newer generations (Gen10
+  Plus, Gen11, and modern iLO 5/iLO 6/iLO 7 firmware releases), they added  
+  granular telemetry codes. Instead of broad component failures, newer releases  
+  break down exact states like encryption chips, firmware verification failures,  
+  NVMe drive states, and connection handshakes. [[1](https://servermanagementportal.ext.hpe.com/docs/redfishservices/ilos/ilo7/ilo7_119/ilo7_other_resourcedefns119),  
+  [2](https://www.hpe.com/psnow/doc/c04154343), [3](https://hewlettpackard.github.io/ilo-rest-api-docs/ilo6/)]**  
+- **The expanded sub-codes added in later firmware releases across the standard HPE OEM
+  Redfish log classes include:**  
+	- **Class 1: Memory (Expanded for SmartMemory & High-Bandwidth Memory)**
+		- **Code 13:** Memory fast-fault tolerance active ➔ 🟢 **OK**
+		- **Code 17:** Memory authentication failed (Non-genuine HPE SmartMemory module detected) ➔ 🟡 **Warning**
+		- **Code 22:** High-Bandwidth Memory (HBM) thermal throttle reached ➔ 🟡 **Warning**
+	- **Class 3: Power Subsystem (Expanded for Intelligent Power Delivery)**
+		- **Code 9:** Power Supply firmware flash mismatch or upgrade failed ➔ 🟡 **Warning**
+		- **Code 15:** Smart Storage Battery circuit failure ➔ 🔴 **Critical**
+		- **Code 22:** Smart Storage Battery completely degraded / end of life ➔ 🔴 **Critical**
+	- **Class 5: CPU / Processor (Expanded for Multi-Die & Security Faults)**
+		- **Code 14:** Processor Silicon
+		    Root of Trust validation failure ➔ 🔴 **Critical**  
+		- **Code 18:** Processor TDP
+		    (Thermal Design Power) restriction applied due to configuration ➔ 🟡 **Warning**  
+		- **Code 25:** Autonomous Crash
+		    Dump (ACD) successfully captured after crash ➔ 🟢 **OK**  
+	- **Class 8: Revision Status / POST (Expanded for Security Profiles)**
+		- **Code 12:** System Platform   Certificate validation success ➔ 🟢 **OK**
+		- **Code 15:** Security State   changed (e.g., switched from Production to HighSecurity/FIPS mode) ➔ 🟢 **OK**
+	- **Class 9: Operating System (Expanded for Driverless OS Monitoring)**
+		- **Code 10:** OS shutdowni   cleanly initiated by OS agent ➔ 🟢 **OK**
+		- **Code 14:** OS freeze   detected by watchdog timer (No BlueScreen dump could execute) ➔ 🔴 **Critical**
+		- **Class 10: Storage Controllers (Expanded for Tri-Mode & NVMe Controller Arrays)**
+		- **Code 16:** Storage  Controller cryptographic key error / Secure Boot validation failed ➔ 🔴 **Critical**
+		- **Code 24:** Sanitize / Secure  Erase operation completed successfully on controller ➔ 🟢 **OK**
+		- **Code 32:** Storage controller configuration signature mismatch (Drive roaming detected) ➔ 🟡 **Warning**
+	- **Class 11: Storage Devices (Expanded for NVMe, U.3, and SSD Wear-out)**
+		- **Code 102:** NVMe Drive Over-temperature warning ➔ 🟡 **Warning**
+		- **Code 114:** SSD Max Endurance / Wear-out limit reached (Drive requires replacement) ➔ 🟡 **Warning**
+		- **Code 120:** Physical drive  logical block provisioning space exhausted ➔ 🔴 **Critical**
+	- **Class 17: Network / NIC Subsystem (Expanded for SmartNICs & Link Integrity)**
+		- **Code 10:** Network Interface  Card (NIC) Connectivity Status transitioned back to healthy ➔ 🟢 **OK**
+		- **Code 11:** Network Link  speed/duplex negotiation mismatch detected ➔ 🟡 **Warning**
+		- **Code 15:** SmartNIC / OCP3 adapter security validation failed ➔ 🔴 **Critical** [[1](https://hewlettpackard.github.io/ilo-rest-api-docs/ilo5/)]
+	- **Class 33: Maintenance System Events**
+		- **Code 1:** Integrated Management Log (IML) cleared manually ➔ 🟢 **OK**
+		- **Code 5:** iLO Firmware flashing process completed successfully ➔ 🟢 **OK** [[1](https://servermanagementportal.ext.hpe.com/docs/redfishclients/ilorest-userguide/ilocommands)]
+	- **Class 50: System Management Recovery (Expanded for Telemetry Restarts)**
+		- **Code 5:** Server reset due  to iLO configuration change rollout ➔ 🟢 **OK**
+		- **Code 547:** Telemetry / Health Monitoring daemon restarted following an isolated internal fault ➔ 🟢 **OK**
+- **Extra codes that i have found**
+	- **"Class": 17 & "ClassDescription": "Network"**vThis maps the event logic to the **Network Subsystem** on your HPE server.
+		- **Code: 10** (Link State Change) indicates a **Network Link Down or Physical Connection Lost** state. **Class 17** handles the physical link status, interconnect communication layer, or network fabric topology.
+			- This code acts as a dual-state diagnostic flag. The management subsystem drops a  telemetry entry into the log whenever a network interface moves between **Link Down** (loss of electrical/optical carrier signal) and **Link Up** (carrier signal acquired or recovered).
+	- **Class 8** (which targets the physical network adapter/silicon health itself),
+	- **"Class": 10 & "ClassDescription": "UEFI"**
+	  This properties block isolates the telemetry scope directly to the server's **System
+	  Firmware / BIOS framework**.** What it targets:** Instead of measuring the health of a physical slot or modular board, Class 10 acts as a programmatic container for software errors, memory maps, system security checks (like Secure Boot authentications), and early power-on pre-boot initializations managed directly by the UEFI system utility.  
+		- **"Code": 1120:** For Class 10, Code 1120 maps strictly to an **Individual DIMM Health Limit Exceeded** state.
+			- **The Message:** Processor 1, DIMM 1 is generating small single-bit errors. While the memory controller successfully corrects each bit deviation, the hardware tracks the frequency. Once the fault density breaches a built-in hourly threshold, the firmware logs this event to alert you that the physical chip on **DIMM 1** is electrically degrading and
+			  nearing end-of-life.  
+		- **"Code": 1126:** Maps strictly to a **Memory Channel Topology Saturation** state.
+			- **The Message:** Because DIMM 1 sits directly inside **Channel 4** (Channel E/F depending on your Gen10 layout), the errors are bleeding across the entire local bus structure. Code 1126 flags that the cumulative total error rate on the shared channel trace lines has crossed acceptable parameters.
+		- **"Code": 625** Within the UEFI Class,** Code 625** represents a **"System Firmware Updated"** configuration event.
+			- The management processor drops this structural
+			  index into the log when a system BIOS flash or secondary ROM firmware  
+			  orchestration completes successfully or updates execution parameters upon the  
+			  subsequent system reset cycle. It marks a foundational state change in the  
+			  server's low-level execution stack.  
+		- **Code 625** flags a **Hardware Authenticity Validation Failure**. When categorized under Categories: ["Administration"] and triggered with this specific message
+			-
+			  ```
+			  "Message": "Processor 2, DIMM 16 could not be authenticated as genuine HPE SmartMemory. Enhanced and extended HPE SmartMemory features will not be active.",
+			  ```
+			- **The root cause:** The UEFI subsystem found a physical component (in this case, **Processor 2, DIMM 16**)
+				- whose serial or signature validation keys do not match HPE's genuine vendor records.
+		- **"Code": 644:** Within the UEFI subsystem repository
+			- Code 644 explicitly translates to an **Uncorrectable Physical DIMM Error**.
+			  This is the structural index used when early firmware diagnostic sweeps find a  
+			  memory module that completely fails basic read/write health parity verification  
+			  before the OS or server management drivers can load.  
+			- **TheCore Root Cause**
+			- The system has flagged a **Fatal Multi-Bit Error** on **Processor 2, DIMM 1**.
+				- Unlike standard correctable errors (which the ECC architecture can patch on the
+				  fly by rewriting corrupted bits), an uncorrectable memory error means two or  
+				  more data bits within a single memory block have failed completely. This  
+				  disrupts the data path stability.  
+	- **"Class": 50** and **"Code": 547** are paired with this specific **"DIMM Initialization Error"** message, it reveals exactly *where* and *why* the failure was caught in the server's boot sequence. **Class 50** targets the server's **Innovation Engine (IE)**, and **
+		-
+		  ```
+		  "Message": "DIMM Initialization Error - Processor 1 Channel H. The identified memory channel could not be properly trained and has been mapped out. (Major Code:00000000, Minor Code:000000CC).",
+		  ```
+		- **Code 547** signals a hardware state transition or firmware checkpoint.
+			- During a cold boot, the Innovation Engine handles the very early low-level hardware orchestration loop. It serves as the baseline monitoring layer that watches over the system memory bus while the CPU controllers are bringing the RAM channels online. Code 547 is generated because the Innovation Engine actively logged a **fatal hardware initialization
+			  failure** from the memory bus and handed that event data up to the system  
+			  log.  
+			- **The Root Cause (Minor Code ****000000CC****)**
+			  The Innovation Engine caught a **Memory Training Failure** on **Processor 1, Channel H**. During early initialization, the system tries to align electrical signaling windows across the RAM pins.  
+				- **The Error:** Minor code 000000CC specifically indicates that the signal timing window on Channel H  failed to stabilize.
+				- **The Result:** The Innovation Engine isolated the entire channel
+				    ("mapped out") to keep the server stable. Any RAM module  
+				    residing in the physical slots tied to Channel H has been electrically  
+				    disabled and is invisible to your operating system.  
+					-
+
+---
+
+# Corrections verified against live hardware
+
+## Class 5, Code 4 - corrected 2026-10-18
+
+**Was documented as:** Processor Interconnect Link (QPI / UPI) Failure.
+
+**What it actually is on AMD ProLiant hardware:** an *Uncorrectable Machine
+Check Exception - Extended Registers* record. This is the register-dump
+companion entry that iLO writes alongside the Class 5 / Code 3 MCE, not a
+separate interconnect fault.
+
+**Evidence** (atlhwe-lsf24-sp, ProLiant Gen10, AMD, IML read 2026-10-18):
+Class 5/4 occurs 104 times and Class 5/3 occurs 82 times, interleaved over the
+same minutes of 2025-06-29 to 2025-07-07. Every 5/4 message begins
+"Uncorrectable Machine Check Exception Extended Registers (Conf 0x..., Ipid
+0x..., Synd 0x..., DeStat 0x..., DeAddr 0x... Misc1 0x...)". Not one mentions
+an interconnect, QPI or UPI link.
+
+QPI and UPI are **Intel** interconnects; this fleet's ProLiants are AMD, which
+uses Infinity Fabric. The original entry appears to be Intel-platform guidance
+applied to the wrong architecture.
+
+**Consequence if uncorrected:** a 5/4 storm reads as a motherboard or CPU-link
+fault and sends a technician after the wrong part, when the actionable signal
+is the paired 5/3 MCE (and, on this host, the Class 10 / Code 644 DIMM
+failure that was driving it).
+
+**Encoded in** `lib/iml_map.sh`, which describes it as the extended register
+dump and retains the documented interconnect reading as a secondary
+possibility for Intel platforms.

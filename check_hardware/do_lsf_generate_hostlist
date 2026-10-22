@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+#
+# Regenerate hostlist/<dc>.hosts and <dc>.host-sps from LSF.
+#
+# ---------------------------------------------------------------------------
+# OUTPUT IS CWD-RELATIVE, DELIBERATELY. This writes ./hostlist relative to
+# wherever it is invoked from, which is what lets check_hardware.sh run it
+# inside a throwaway staging directory and verify the result BEFORE letting it
+# near the live hostlist/. Both generators exit 0 having written empty files
+# when LSF is unavailable, so "generate straight onto the live copy and hope"
+# is not an option - the staging step is the entire safety net, and it only
+# works because this script follows $PWD.
+#
+# It briefly resolved its output from ${BASH_SOURCE[0]}/.. instead, to stop
+# anyone running it from inside bin/ creating a stray bin/hostlist. That is
+# moot now it is back at the tree root - and worse, at the root the /.. pointed
+# one level ABOVE the project, so it would have written ~/scripts/hostlist
+# while check_hardware.sh went on reading the stale in-project copy without
+# complaining. Same silent-staleness trap, one directory up.
+#
+# The accepted tradeoff: run this by hand from anywhere other than the project
+# root and you get a stray hostlist/ there. check_hardware.sh is immune because
+# it always cd's first. Kept byte-compatible in behaviour with
+# inventory_script's copy on purpose - they are the same generator.
+#
+# NOTE: do not add `set -u` here. /tool/pandora/etc/lsf/profile.lsf references
+# AMDLSFCLUSTER unguarded and dies under it, which yields an EMPTY hostlist
+# while still exiting 0.
+# ---------------------------------------------------------------------------
+
+test -f /tool/pandora/etc/lsf/profile.lsf && . /tool/pandora/etc/lsf/profile.lsf
+
+
+do_lsf_generate_hostlist () {
+  local outdir='./hostlist'
+
+  if ! [[ -d ${outdir} ]] ; then
+    echo "creating directory ${outdir}";
+    mkdir "${outdir}";
+  else
+    echo "directory exists. continuing.";
+  fi
+
+  echo "generating hostlist files. this will take a moment."
+  for i in atl caco dfdc pldc sadc syco; do
+    lshosts -w -R "${i}&&emulation" | grep -v HOST|cut -f1 -d' ' > ${outdir}/${i}.1
+    bhosts -w -R "${i}&&!lsfmaster" | grep -v HOST|cut -f1 -d' ' > ${outdir}/${i}.2
+    sort -u ${outdir}/${i}.[12]> ${outdir}/${i}.hosts
+    case "${i}" in
+    caco)
+      sed 's/$/-ipmi/' ${outdir}/${i}.hosts>${outdir}/${i}.host-sps
+      ;;
+    dfdc)
+      sed 's/^/mp/' ${outdir}/${i}.hosts>${outdir}/${i}.host-sps
+      ;;
+    sadc)
+      sed 's/^/mp/' ${outdir}/${i}.hosts>${outdir}/${i}.host-sps
+      # Remove missing Fremont sps for now
+      sed -i '/mpmedloan-d2rcm[1234]/d' ${outdir}/${i}.host-sps
+      ;;
+    *)
+      sed 's/$/-sp/' ${outdir}/${i}.hosts>${outdir}/${i}.host-sps
+      ;;
+  esac
+    rm -f ${outdir}/${i}.[12]
+  done
+}
+
+do_lsf_generate_hostlist;
+

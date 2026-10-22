@@ -1,0 +1,335 @@
+# ---------------------------------------------------------------------------
+# check_hardware.conf - configuration for the IML hardware checks.
+# ---------------------------------------------------------------------------
+#
+# Copy this file to check_hardware.conf and edit. It is sourced as shell, so
+# it can redefine anything the scripts define - including functions, which is
+# the escape hatch for a site-specific quirk that does not deserve a flag.
+#
+#   cp check_hardware.conf.example check_hardware.conf
+#
+# PRECEDENCE: command line  >  this file  >  built-in defaults.
+# The scripts parse their arguments, source this file, then re-apply the
+# arguments, so a flag always beats a setting here. Nothing in this file can
+# override something you typed.
+#
+# All three IML scripts read this same file:
+#   check_iml/check_hpe_iml.sh      one HPE host
+#   check_iml/check_lenovo_iml.sh   one Lenovo host
+#   check_hardware.sh               the whole fleet, driving the other two
+#
+# Paths may be absolute or relative to the directory holding the script.
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Credentials
+# ---------------------------------------------------------------------------
+
+# Where the credentials live. An encrypted sidecar at "${CREDS_FILE}.enc" is
+# preferred automatically when present, so this path does NOT change when you
+# encrypt the file - the scripts find the .enc on their own and fall back to
+# the plaintext for as long as both exist.
+#
+#CREDS_FILE="${BASE_DIR}/creds/ilo_creds"
+
+# The private key that decrypts the sidecar. Defaults to ~/.ssh/id_rsa, which
+# is normally right - set this only when the service account's key lives
+# somewhere else. It must be a classic PEM RSA key; ssh_crypt.sh refuses the
+# modern OpenSSH container format and ED25519 keys up front.
+#
+#CREDS_SSH_KEY="${HOME}/.ssh/id_rsa"
+
+# Credentials may also be set here directly, as an ordered list tried in the
+# order written. Prefer the credentials file - anything in this file is
+# plaintext on disk and this file is not the one that gets encrypted.
+#
+# There is no fleet default and no per-datacenter override: the list IS the
+# whole statement of intent.
+#
+#ILO_CREDS=(
+#  "0:username:password"
+#  "1:username:password"
+#)
+
+
+# ---------------------------------------------------------------------------
+# What counts as a finding
+# ---------------------------------------------------------------------------
+
+# Report Warning findings as well as Critical.  (--warnings)
+# Critical-only is the default because that is the list someone acts on today;
+# warnings are real but rarely same-day.
+#
+#INCLUDE_WARNINGS=0
+
+# Also report entries already flagged repaired in the IML.  (--include-repaired)
+# Off by default: "repaired" is set by hand by whoever swapped the part, so an
+# entry carrying it has already been dealt with.
+#
+# HPE ONLY. The Lenovo XCC has no repaired flag, so this does nothing there.
+#
+#INCLUDE_REPAIRED=0
+
+# Which event categories count as hardware faults.  (--all-categories)
+#
+# HPE tags every IML entry: Hardware, Power, Administration, Configuration,
+# Firmware, Security, Maintenance. That tag is the only reliable way to tell a
+# failed part from an administrative notice - the firmware reports "Factory
+# Root CA is about to expire" as CRITICAL, and "Time & Date Not Set" as a
+# warning, and neither means any hardware has failed. Reporting those as
+# hardware faults is how a fleet report becomes noise nobody reads.
+#
+# An entry is kept if it carries AT LEAST ONE of these categories, so a mixed
+# tag like ["Security","Hardware"] is kept on the strength of Hardware.
+#
+# Lenovo supplies no categories; check_lenovo_iml.sh derives an equivalent
+# from Oem.Lenovo.Source (see lib/lenovo_map.sh) so both vendors filter alike.
+#
+#HW_CATEGORIES="Hardware Power"
+#ALL_CATEGORIES=0
+
+# Age cutoff. BOTH ARE UNSET BY DEFAULT, deliberately.
+#
+# The IML never rotates, so a fault stays in it until someone marks it
+# repaired. An unrepaired uncorrectable memory error is still a dead DIMM
+# whether it was logged last night or last year, and a default window would
+# quietly report such a host as healthy. Age is reported instead, in the
+# FirstSeen / LastSeen / AgeDays columns, so you can filter downstream.
+#
+# Set one of these only when you specifically want recent activity - for
+# instance a daily run that asks "what broke since yesterday".
+#
+#SINCE_DAYS=90                 # --days 90
+#SINCE_DATE="2026-01-01"       # --since 2026-01-01
+
+
+# ---------------------------------------------------------------------------
+# Output
+# ---------------------------------------------------------------------------
+
+# "csv" (default) or "report".  (--csv / --report)
+# CSV is the machine format the fleet driver concatenates; its column names
+# and order are a contract, so do not reorder them.
+#
+#OUTPUT_FORMAT="csv"
+
+# Emit the CSV header line.  (--no-header)
+# The fleet driver turns this off for the per-host runs it concatenates, and
+# writes one header itself.
+#
+#PRINT_HEADER=1
+
+# Write output here instead of stdout.  (--output FILE)
+#
+#OUTPUT_FILE=""
+
+
+# ---------------------------------------------------------------------------
+# Naming and layout
+# ---------------------------------------------------------------------------
+
+# Where the hostlist/*.hosts and *.host-sps files live. Generated by
+# do_lsf_generate_hostlist. The single-host scripts consult the .host-sps
+# files to recognise a name they are handed; the fleet driver reads both.
+#
+#HOSTS_DIR="${BASE_DIR}/hostlist"
+
+# Suffix appended to a bare host name to reach its service processor, used
+# only when the host lists do not resolve the name. The six datacenters use
+# three conventions (-sp, -ipmi, mp<host>), which is exactly why the lists are
+# consulted first rather than this being assumed.
+#
+#SP_SUFFIX="-sp"
+
+# Domain appended when a bare name does not resolve.
+#
+# LEAVE THIS EMPTY IN PRODUCTION. On atlvhwerptd01 /etc/resolv.conf carries
+# "search amd.com", so bare host and SP names resolve natively and setting a
+# suffix here is at best redundant. It exists for environments without that
+# search path.
+#
+#HOST_SUFFIX=""
+
+# Scratch space. Work directories are created here with mktemp -d and removed
+# on exit, including on failure.
+#
+#TMP_DIR="${BASE_DIR}/tmp"
+
+
+# ---------------------------------------------------------------------------
+# Redfish transport
+# ---------------------------------------------------------------------------
+
+#ILO_CONNECT_TIMEOUT=10
+#ILO_MAX_TIME=60
+#ILO_RETRIES=1
+
+# Seconds to wait between credential attempts on one service processor.
+#
+# DO NOT LOWER THIS TO SPEED UP A SWEEP. After a couple of rejected logins an
+# iLO answers 401 to every login for a short window, valid ones included. A
+# credential list walked faster than that window locks itself out on the wrong
+# passwords and then reports the CORRECT one as rejected, which is
+# indistinguishable from a genuinely unknown credential.
+#
+# The effective pace is max(this, the SP's own published LoginFailureDelay),
+# which the scripts read unauthenticated and free from /redfish/v1/. A host
+# declaring 0 has still been observed exhibiting the lockout, so that published
+# value is treated as a floor to respect, never as proof no delay applies.
+#
+#ILO_AUTH_RETRY_DELAY=15
+
+
+# ---------------------------------------------------------------------------
+# Learned credential map
+# ---------------------------------------------------------------------------
+#
+# Remembers which credential worked for each service processor, so later runs
+# go straight to it. This matters: the fleet is genuinely mixed - the Gen11
+# hosts measured here take a different credential from the older ones - so an
+# unaided run spends three failed logins and 45 seconds on every Gen11
+# machine, every time. With the map that drops to one login and about four
+# seconds. Measured on atlhwe-lsf309: 54s cold, 4s warm.
+#
+# ONLY THE LABEL IS STORED, NEVER A PASSWORD. Each file holds one line - the
+# label from the ILO_CREDS entry that won. This is a guarantee: do not cache
+# the credential itself, or this directory becomes a secret store that needs
+# the same protection as creds/.
+#
+# Path mirrors inventory_script's production setting (INVENTORY_BASE/tmp/credmap).
+#
+#CREDMAP_DIR="${BASE_DIR}/tmp/credmap"
+#USE_CREDMAP=1
+
+
+# ---------------------------------------------------------------------------
+# Hostlist regeneration from LSF
+# ---------------------------------------------------------------------------
+
+# The sweep rebuilds hostlist/ from LSF before enumerating it, mirroring
+# run_inventory.sh's stage 1. A frozen hostlist drifts out of step with the
+# fleet - hosts added since it was last written are never checked at all, and
+# decommissioned ones are reported unreachable on every run. Set to 0, or pass
+# --no-generate, on a machine with no LSF client or when deliberately sweeping
+# a fixed list.
+#
+#DO_GENERATE=1
+
+# Where do_lsf_generate_hostlist lives. It writes ./hostlist relative to its
+# CWD, which is what lets the driver run it inside a staging directory and
+# verify the output before promoting it over the live copy.
+#
+#GENERATE_HOSTLIST="${BASE_DIR}/do_lsf_generate_hostlist"
+
+# Sourced so lshosts/bhosts can be verified present BEFORE generating.
+# This is the single most important line in this section: the generator exits
+# 0 having written EMPTY host lists when LSF is unreachable, so its exit status
+# proves nothing and an unchecked run can wipe a good spine. On atlvhwerptd01
+# lshosts/bhosts are not on a non-interactive SSH PATH; this profile adds them.
+# Note the generator sources this same path itself.
+#
+#LSF_PROFILE="/tool/pandora/etc/lsf/profile.lsf"
+
+# Datacenters a complete generation must produce. Each needs BOTH a <dc>.hosts
+# and a <dc>.host-sps - a host present in the first but missing from the second
+# is reported NO_SP_ENTRY rather than swept, so a half-generation would turn
+# the whole fleet into NO_SP_ENTRY rows without ever looking unreachable.
+#
+#EXPECTED_DCS="atl caco dfdc pldc sadc syco"
+
+# Plausibility floors a staged hostlist must clear before it replaces the live
+# one. MIN_HOSTS is absolute; MIN_HOST_PERCENT is measured against the CURRENT
+# list, which is what catches a partial LSF answer - non-empty, so it passes
+# every other check, but far too small to be the real fleet. Set
+# MIN_HOST_PERCENT=0 when the fleet genuinely shrinks below the threshold.
+#
+#MIN_HOSTS=100
+#MIN_HOST_PERCENT=80
+
+
+# ---------------------------------------------------------------------------
+# Lenovo
+# ---------------------------------------------------------------------------
+
+# Which XCC log service to read. PlatformLog is the IML equivalent and the
+# only one that carries severity-tagged hardware events - measured across both
+# Lenovo hosts, ActiveLog and SaLog were empty, SEL returned 404, and
+# MaintenanceLog and DiagnosticLog have no Severity field at all. AuditLog
+# holds logins and config changes, not hardware faults, and is not read.
+#
+# NOTE: the XCC caps this log at 1024 entries and will not page past them, so
+# on a busy machine older events are simply not retrievable over Redfish.
+# check_lenovo_iml.sh warns when it sees exactly 1024.
+#
+#LENOVO_LOG="PlatformLog"
+
+
+# ---------------------------------------------------------------------------
+# Environment
+# ---------------------------------------------------------------------------
+
+# APPENDED to PATH. The script sets its own hardened PATH up front
+# (/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin) because cron
+# and systemd supply almost nothing, then appends this.
+#
+# Appended, never prepended, and that matters more than it looks: a site
+# directory like pandora64 often carries its own date, grep, sed, awk, sort,
+# python3 and openssl at different versions from the system ones. Prepending
+# swaps the whole toolchain underneath scripts written against the system
+# copies. Append, and the directory supplies only what is genuinely absent -
+# on atlvhwerptd01 that is jq alone, which is the one thing a run cannot
+# proceed without.
+#
+#EXTRA_PATH="/tool/pandora64/bin"
+
+# ---------------------------------------------------------------------------
+# Run tag and transcript
+# ---------------------------------------------------------------------------
+
+# Prefix for an AUTO-generated run tag: "prod-" yields prod-20261018-191106.
+# Ignored when --run-tag is given, which is always taken verbatim.
+#
+# Setting this is what lets a scheduled job be just
+#     check_hardware.sh --conf <conf> --fresh
+# with no wrapper computing a timestamp and redirecting output by hand.
+#
+#RUN_TAG_PREFIX="prod-"
+
+# Where each run writes its own transcript, as <run-tag>.log, with latest.log
+# symlinked to the newest. Default ${TMP_DIR}/logs.
+#
+# Do NOT set RUN_TAG itself in a conf. A fixed tag is reused on every run, and
+# re-using a tag RESUMES from the per-host cache - which has no age check - so
+# a nightly job would re-publish its first night's findings forever while
+# looking entirely healthy.
+#
+#LOG_DIR="${TMP_DIR}/logs"
+
+# ---------------------------------------------------------------------------
+# Retention
+# ---------------------------------------------------------------------------
+
+# Prune LOCAL run artefacts older than this many days: reports/<tag>/,
+# tmp/fleet/<tag>/ and tmp/logs/<tag>.log. 0 keeps everything. Default 90.
+#
+# The per-host cache under tmp/fleet/ dominates the footprint - roughly 8 MB a
+# run against a 1600-host fleet, versus ~150 KB of report and a few KB of log.
+#
+# NOTHING under OUTPUT_DIR is pruned. OUTPUT_DIR is the PUBLISHED destination
+# in this project, and a scheduled job must not delete files that other tools
+# are reading. Retiring published CSVs is a deliberate manual act.
+#
+# Only directories containing this script's own output are removed, and the
+# current run is always skipped - a wrong clock must not delete a finished
+# sweep. Use --dry-run to see what a prune would do without doing it.
+#
+#RETENTION_DAYS=90
+
+# Debug logging on stderr.  (-v)
+#
+#VERBOSE=0
+
+# "auto" (colour only on a terminal), "always" or "never".
+#
+#LOG_COLOR="auto"
