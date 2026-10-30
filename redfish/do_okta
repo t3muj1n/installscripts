@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+. $1;
+OKTA_USER="${user}";
+OKTA_PASS="${pass}";
+OKTA_DOMAIN='amdsso.okta.com';
+OKTA_CLIENT_ID='';
+SESSION_TOKEN='';
+
+read -r -d, OKTA_CLIENT_ID SESSION_TOKEN <<< $(curl -s -X POST "https://${OKTA_DOMAIN}/api/v1/authn" -H "Accept: application/json" -H "Content-Type: application/json"      -d "{
+       \"username\": \"${OKTA_USER}\",
+       \"password\": \"${OKTA_PASS}\"
+     }" | jq -r '._embedded.user.id, .sessionToken') ; echo "$OKTA_CLIENT_ID $SESSION_TOKEN"
+

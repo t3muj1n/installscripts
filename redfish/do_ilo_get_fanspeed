@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+set -o pipefail
+
+do_ilo_get_fanspeed () {
+
+    local user="$1"
+    local pass="$2"
+    local host="$3"
+
+    curl -s -k \
+        -u "${user}:${pass}" \
+        -X GET \
+        -H "Content-Type: application/json" \
+        "https://${host}/redfish/v1/Chassis/1/Thermal" |\
+        jq '.Oem.Hpe.ThermalConfiguration'
+}
+
+if [[ $# -ne 3 ]]; then
+    echo "Usage: $0 <user> <pass> <hostname> "
+    exit 1
+fi
+
+do_ilo_get_fanspeed "$@"
+

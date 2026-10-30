@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+set -o pipefail
+
+do_ilo_set_fanspeed() {
+
+    local user="$1"
+    local pass="$2"
+    local host="$3"
+    local profile="$4"
+
+    curl -s -k \
+        -u "${user}:${pass}" \
+        -X PATCH \
+        "https://${host}/redfish/v1/Chassis/1/Thermal" \
+        -H "Content-Type: application/json" \
+        -d "{
+              \"Oem\": {
+                \"Hpe\": {
+                  \"ThermalConfiguration\": \"${profile}\"
+                }
+              }
+            }" | jq  '.error["@Message.ExtendedInfo"][0].MessageId'
+}
+
+if [[ $# -ne 4 ]]; then
+    echo "Usage: $0 <user> <pass> <hostname> <thermal_profile>"
+    exit 1
+fi
+
+do_ilo_set_fanspeed "$@"
+
